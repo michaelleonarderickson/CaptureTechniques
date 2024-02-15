@@ -14,7 +14,7 @@
         }
         #realTimeText {
             background-color: #000000; /* Black real-time text background */
-            color: #cccccc; /* Black real-time text color */
+            color: #cccccc; /* Grey real-time text color */
             padding: 10px;
             margin-bottom: 10px;
             position: relative; /* Position relative for absolute positioning of recording status */
@@ -45,11 +45,11 @@
         <div class="row justify-content-center">
             <div class="col-md-9">
                 <h3>Transcribe your speech</h3>
-				<div class="custom-control custom-switch d-flex flex-row col-md-8">
-                <input type="checkbox" class="custom-control-input" id="toggleTimestampsCheckbox">
-                <label class="custom-control-label" for="toggleTimestampsCheckbox">Toggle Timestamps</label>
-				<p id="recordingStatus" style="color: red; display: none;">&nbsp;Recording in progress...</p>
-            </div>    
+                <div class="custom-control custom-switch d-flex flex-row col-md-8">
+                    <input type="checkbox" class="custom-control-input" id="toggleTimestampsCheckbox">
+                    <label class="custom-control-label" for="toggleTimestampsCheckbox">Toggle Timestamps</label>
+                    <p id="recordingStatus" style="color: red; display: none;">&nbsp;Recording in progress...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -64,14 +64,10 @@
             <div class="col-md-3 d-flex flex-row">
                 <button id="recordButton" class="btn btn-start">Record</button>
             </div>
-			<!-- Clear button added here -->
-			<div class="col-md-4 d-flex flex-row-reverse">
-				<button id="clearTranscriptionButton" class="btn btn-warning">Clear Transcription</button>
-			</div>
-                <button id="copyTranscriptionButton" class="btn btn-primary d-flex flex-row-reverse">Copy Transcription</button>            
-        </div>
-        <div class="row justify-content-center">
-
+            <div class="col-md-4 d-flex flex-row-reverse">
+                <button id="clearTranscriptionButton" class="btn btn-warning">Clear Transcription</button>
+            </div>
+            <button id="copyTranscriptionButton" class="btn btn-primary d-flex flex-row-reverse">Copy Transcription</button>
         </div>
         <div class="row justify-content-center">
             <div class="col-md-9" id="transcriptionContainer"></div>
@@ -85,112 +81,85 @@
             const recordButton = document.getElementById('recordButton');
             const recordingStatus = document.getElementById('recordingStatus');
             const realTimeText = document.getElementById('realTimeText');
-            const recordingStatusText = document.getElementById('recordingStatusText');
             const transcriptionContainer = document.getElementById('transcriptionContainer');
             const copyTranscriptionButton = document.getElementById('copyTranscriptionButton');
             const toggleTimestampsCheckbox = document.getElementById('toggleTimestampsCheckbox');
-            
-            let timeoutId; // For managing the 64-second visibility of interim text
-        
+
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (SpeechRecognition) {
                 const recognition = new SpeechRecognition();
                 recognition.continuous = true;
                 recognition.interimResults = true;
-        
+
                 recognition.onstart = function() {
                     recordButton.textContent = 'Stop';
                     recordingStatus.style.display = 'block';
-                    recordingStatusText.style.display = 'block'; // Display recording status text
-                    realTimeText.style.display = 'block'; // Make sure the real-time text container is visible
+                    realTimeText.style.display = 'block'; // Ensure the real-time text container is always visible
                 };
-        
+
                 recognition.onerror = function(event) {
                     alert('Speech recognition error: ' + event.error);
                 };
-        
+
                 recognition.onend = function() {
                     recordButton.textContent = 'Record';
                     recordingStatus.style.display = 'none';
-                    recordingStatusText.style.display = 'none'; // Hide recording status text
                 };
-        
+
                 recognition.onresult = function(event) {
-					let interim_transcript = '';
+                    let interim_transcript = '';
 
-					for (let i = event.resultIndex; i < event.results.length; ++i) {
-						const transcriptText = event.results[i][0].transcript;
-						let final_transcript = transcriptText; // Start with just the transcript text
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            const transcriptText = event.results[i][0].transcript;
+                            let final_transcript = '';
 
-						if (event.results[i].isFinal) {
-							clearTimeout(timeoutId); // Clear the existing timeout
-							
-							// Check if timestamps should be included
-							if (toggleTimestampsCheckbox.checked) {
-								const timestamp = new Date();
-								const formattedTimestamp = `[${timestamp.getFullYear()}:${("0" + (timestamp.getMonth() + 1)).slice(-2)}:${("0" + timestamp.getDate()).slice(-2)} | ${("0" + timestamp.getHours()).slice(-2)}:${("0" + timestamp.getMinutes()).slice(-2)}:${("0" + timestamp.getSeconds()).slice(-2)}.${timestamp.getMilliseconds()}] `;
-								final_transcript = formattedTimestamp + transcriptText; // Prepend timestamp if checkbox is checked
-							}
+                            // Check if timestamps should be included
+                            if (toggleTimestampsCheckbox.checked) {
+                                const timestamp = new Date();
+                                const formattedTimestamp = `[${timestamp.getFullYear()}:${("0" + (timestamp.getMonth() + 1)).slice(-2)}:${("0" + timestamp.getDate()).slice(-2)} | ${("0" + timestamp.getHours()).slice(-2)}:${("0" + timestamp.getMinutes()).slice(-2)}:${("0" + timestamp.getSeconds()).slice(-2)}.${timestamp.getMilliseconds()}] `;
+                                final_transcript = formattedTimestamp + transcriptText;
+                            } else {
+                                final_transcript = transcriptText;
+                            }
 
-							const transcriptionDiv = document.createElement('div');
-							transcriptionDiv.textContent = final_transcript;
-							transcriptionContainer.appendChild(transcriptionDiv); // Append final transcript at the end
-							realTimeText.textContent = ''; // Clear interim text after finalizing
-						} else {
-							interim_transcript += transcriptText;
-						}
-					}
+                            const transcriptionDiv = document.createElement('div');
+                            transcriptionDiv.textContent = final_transcript;
+                            transcriptionContainer.appendChild(transcriptionDiv);
+                        } else {
+                            interim_transcript += event.results[i][0].transcript;
+                        }
+                    }
 
-					// Update the real-time text with the latest interim results
-					if (interim_transcript !== '') {
-						realTimeText.textContent = interim_transcript;
-						clearTimeout(timeoutId); // Reset the timer whenever new interim results are received
-						timeoutId = setTimeout(() => {
-							realTimeText.textContent = ''; // Clear the real-time text after 64 seconds
-							realTimeText.style.display = 'none'; // Optionally hide the container
-						}, 64000); // Set the timer for 64 seconds
-					}
-				};
-        
+                    realTimeText.textContent = interim_transcript;
+                };
+
                 recordButton.onclick = function() {
                     if (recordButton.textContent === 'Record') {
                         recognition.start();
-                        recordButton.textContent = 'Stop';
                         recordButton.classList.remove('btn-start');
                         recordButton.classList.add('btn-stop');
                     } else {
                         recognition.stop();
-                        clearTimeout(timeoutId); // Ensure the timeout is cleared when stopping manually
-                        recordButton.textContent = 'Record';
                         recordButton.classList.remove('btn-stop');
                         recordButton.classList.add('btn-start');
                     }
                 };
-        
+
                 copyTranscriptionButton.onclick = function() {
                     const textToCopy = transcriptionContainer.innerText;
-                    if (toggleTimestampsCheckbox.checked) {
-                        navigator.clipboard.writeText(textToCopy);
-                    } else {
-                        const textWithoutTimestamps = textToCopy.replace(/\[\d{4}:\d{2}:\d{2} \| \d{2}:\d{2}:\d{2}\.\d{3}\]/g, ''); // Remove timestamps
-                        navigator.clipboard.writeText(textWithoutTimestamps);
-                    }
+                    navigator.clipboard.writeText(textToCopy);
                 };
-        
             } else {
                 recordButton.disabled = true;
                 realTimeText.textContent = "Speech recognition is not supported in this browser. Try Chrome or Edge.";
             }
+
+            document.getElementById('clearTranscriptionButton').addEventListener('click', function() {
+                transcriptionContainer.innerHTML = '';
+                realTimeText.textContent = '';
+            });
         };
-		
-				document.addEventListener('DOMContentLoaded', function() {
-					const clearTranscriptionButton = document.getElementById('clearTranscriptionButton');
-					clearTranscriptionButton.addEventListener('click', function() {
-						transcriptionContainer.innerHTML = ''; // Clear the transcription container
-						// Optionally reset any other elements, like the real-time text display
-						realTimeText.textContent = '';
-					});
-				});
-        </script>
+    </script>
 </body>
 </html>
