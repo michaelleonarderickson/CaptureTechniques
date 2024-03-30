@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice to Text Transcription</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #171717; /* Dark background for night mode */
+            color: #F1FAEE; /* Light text color for readability */
+        }
+        #recordingStatus {
+            color: #E63946; /* Bright color for recording status */
+        }
+        #realTimeText {
+            background-color: #000000; /* Black real-time text background */
+            color: #cccccc; /* Grey real-time text color */
+            padding: 10px;
+            margin-bottom: 10px;
+            position: relative; /* Position relative for absolute positioning of recording status */
+        }
+        #recordingStatusText {
+            color: #E63946; /* Red recording status text color */
+            position: absolute;
+            top: 5px;
+            left: 10px;
+            display: none; /* Initially hidden */
+        }
+        #transcriptionContainer {
+            margin-top: 20px;
+        }
+        .btn-start {
+            background-color: #457B9D; /* Start button color */
+            border-color: #457B9D;
+        }
+        .btn-stop {
+            background-color: #E63946; /* Stop button color */
+            border-color: #E63946;
+            color: #000000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-9">
+                <h3>Transcribe your speech</h3>
+                <div class="custom-control custom-switch d-flex flex-row col-md-8">
+                    <input type="checkbox" class="custom-control-input" id="toggleTimestampsCheckbox">
+                    <label class="custom-control-label" for="toggleTimestampsCheckbox">Toggle Timestamps</label>
+                    <p id="recordingStatus" style="color: red; display: none;">&nbsp;Recording in progress...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-9">
+                <div id="realTimeText" class="mb-3"></div>
+            </div>
+        </div>
+        <div class="row justify-content-center">
+            <div class="col-md-3 d-flex flex-row">
+                <button id="recordButton" class="btn btn-start">Record</button>
+            </div>
+            <div class="col-md-4 d-flex flex-row-reverse">
+                <button id="clearTranscriptionButton" class="btn btn-warning">Clear Transcription</button>
+            </div>
+            <button id="copyTranscriptionButton" class="btn btn-primary d-flex flex-row-reverse">Copy Transcription</button>
+        </div>
+        <div class="row justify-content-center">
+            <div class="col-md-9" id="transcriptionContainer"></div>
+        </div>
+    </div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        window.onload = function() {
+            const recordButton = document.getElementById('recordButton');
+            const recordingStatus = document.getElementById('recordingStatus');
+            const realTimeText = document.getElementById('realTimeText');
+            const transcriptionContainer = document.getElementById('transcriptionContainer');
+            const copyTranscriptionButton = document.getElementById('copyTranscriptionButton');
+            const toggleTimestampsCheckbox = document.getElementById('toggleTimestampsCheckbox');
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                const recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+
+                recognition.onstart = function() {
+                    recordButton.textContent = 'Stop';
+                    recordingStatus.style.display = 'block';
+                    realTimeText.style.display = 'block'; // Ensure the real-time text container is always visible
+                };
+
+                recognition.onerror = function(event) {
+                    alert('Speech recognition error: ' + event.error);
+                };
+
+                recognition.onend = function() {
+                    recordButton.textContent = 'Record';
+                    recordingStatus.style.display = 'none';
+                };
+
+                recognition.onresult = function(event) {
+                    let interim_transcript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            const transcriptText = event.results[i][0].transcript;
+                            let final_transcript = '';
+
+                            // Check if timestamps should be included
+                            if (toggleTimestampsCheckbox.checked) {
+                                const timestamp = new Date();
+                                const formattedTimestamp = `[${timestamp.getFullYear()}:${("0" + (timestamp.getMonth() + 1)).slice(-2)}:${("0" + timestamp.getDate()).slice(-2)} | ${("0" + timestamp.getHours()).slice(-2)}:${("0" + timestamp.getMinutes()).slice(-2)}:${("0" + timestamp.getSeconds()).slice(-2)}.${timestamp.getMilliseconds()}] `;
+                                final_transcript = formattedTimestamp + transcriptText;
+                            } else {
+                                final_transcript = transcriptText;
+                            }
+
+                            const transcriptionDiv = document.createElement('div');
+                            transcriptionDiv.textContent = final_transcript;
+                            transcriptionContainer.appendChild(transcriptionDiv);
+                        } else {
+                            interim_transcript += event.results[i][0].transcript;
+                        }
+                    }
+
+                    realTimeText.textContent = interim_transcript;
+                };
+
+                recordButton.onclick = function() {
+                    if (recordButton.textContent === 'Record') {
+                        recognition.start();
+                        recordButton.classList.remove('btn-start');
+                        recordButton.classList.add('btn-stop');
+                    } else {
+                        recognition.stop();
+                        recordButton.classList.remove('btn-stop');
+                        recordButton.classList.add('btn-start');
+                    }
+                };
+
+                copyTranscriptionButton.onclick = function() {
+                    const textToCopy = transcriptionContainer.innerText;
+                    navigator.clipboard.writeText(textToCopy);
+                };
+            } else {
+                recordButton.disabled = true;
+                realTimeText.textContent = "Speech recognition is not supported in this browser. Try Chrome or Edge.";
+            }
+
+            document.getElementById('clearTranscriptionButton').addEventListener('click', function() {
+                transcriptionContainer.innerHTML = '';
+                realTimeText.textContent = '';
+            });
+        };
+    </script>
+</body>
+</html>
