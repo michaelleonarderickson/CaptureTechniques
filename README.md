@@ -1,3 +1,5 @@
+Made for your browser
+
 Remember to use ethical guidelines.
 
 1. Obtain Proper Authorization:
